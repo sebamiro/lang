@@ -9,6 +9,42 @@ typedef struct {
 	u32		lenExtrn;
 } parser;
 
+typedef struct
+{
+	enum {
+		Rval_Lval,
+		Rval_Constant,
+		Rval_Identifier,
+		Rval_OnStack,
+	} type;
+	token token;
+	b32 hasError;
+} rval;
+
+typedef struct
+{
+	u32 len;
+} ast_global;
+
+typedef struct
+{
+	enum {
+		Ast_Statement,
+		Ast_BinaryOperation,
+		Ast_Constant,
+		Ast_Identifier,
+	} Type;
+} ast_value;
+
+typedef handle_ast u32;
+typedef struct
+{
+	handle_ast	len;
+	handle_ast	cur;
+	ast_value*	data;
+} ast;
+
+
 b32 ExpectNextToken(lexer* lex, type_token type)
 {
 	token t = GetNextToken(lex);
@@ -22,18 +58,6 @@ b32 ExpectToken(lexer* lex, type_token type)
 
 	return t.type == type;
 }
-
-typedef struct
-{
-	enum {
-		Rval_Lval,
-		Rval_Constant,
-		Rval_Identifier,
-		Rval_OnStack,
-	} type;
-	token token;
-	b32 hasError;
-} rval;
 
 rval term(parser* parser)
 {
@@ -442,7 +466,7 @@ b32 function(parser* parser)
 	// Since no types, only the arg count is enough I guess.
 	if (!ExpectNextToken(parser->lex, ')'))
 	{
-		fprintf(stderr, "Expected empty paramteter list\n");
+		ReportCompilerError(parser->lex, PeekToken(parser->lex), "Expected empty paramteter list"); // TODO: Report compiler error
 		return 1;
 	}
 	GetNextToken(parser->lex);
@@ -461,7 +485,7 @@ b32 definition(parser* parser)
 {
 	if (!ExpectToken(parser->lex, Token_Identifier))
 	{
-		fprintf(stderr, "[definition] Expected Identifier\n"); // TODO: Report compiler error
+		ReportCompilerError(parser->lex, PeekToken(parser->lex), "[definition] Expected Identifier\n"); // TODO: Report compiler error
 		return 1;
 	}
 	token ident = PeekToken(parser->lex);

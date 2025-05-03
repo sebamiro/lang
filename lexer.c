@@ -495,3 +495,29 @@ void printToken(type_token t)
 	}
 }
 
+void ReportCompilerError(lexer* lex, token token, const char* format)
+{
+	u32 line = 1;
+	u32 cursor = 1;
+
+	u32 beginLine = 0;
+	for (u32 i = 0; i < token.start; ++i)
+	{
+		if (lex->buf[i] == '\n')
+		{
+			line++;
+			beginLine = i + 1;
+		}
+	}
+	u32 endLine = token.start;
+	cursor = token.start - beginLine + 1;
+	while (lex->buf[endLine] != '\n' && endLine < lex->len)
+	{
+		endLine++;
+	}
+	lex->buf[endLine] = 0;
+	fprintf(stderr, "%s\nfile.b:%d:%d\n%d | %s\n", format, line, cursor, line, (char*)(lex->buf + beginLine));
+	fprintf(stderr, "  |%*s\n", cursor + 3, "^~~");
+}
+
+

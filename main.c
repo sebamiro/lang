@@ -38,7 +38,11 @@ int main(int argc, char** argv)
 	}
 	u8* buf = malloc(s.st_size);
 	assert(buf);
-	fread(buf, s.st_size, 1, file);
+	if (!fread(buf, s.st_size, 1, file))
+	{
+		fprintf(stderr, "read error\n");
+		return 1;
+	}
 
 	lexer lex = InitLexer(buf, s.st_size);
 
