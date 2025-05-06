@@ -36,7 +36,7 @@ typedef struct
 	} Type;
 } ast_value;
 
-typedef handle_ast u32;
+typedef u32 handle_ast;
 typedef struct
 {
 	handle_ast	len;
