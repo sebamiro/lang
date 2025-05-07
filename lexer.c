@@ -36,9 +36,41 @@ inline b32 isAlphaDigit(char c)
 	return isDigit(c) || (c >= 'A' && c <= 'Z');
 }
 
-inline int isWhiteSpace(char c)
+inline b32 isWhiteSpace(char c)
 {
 	return c > 0 && c <= 32;
+}
+
+inline void skipComment(lexer* lex)
+{
+	char c;
+	u32 commentLevel = 1;
+
+	while (commentLevel > 0)
+	{
+		c = peekChar(lex);
+		if (c == '/')
+		{
+			if (peekNextChar(lex) == '*')
+			{
+				commentLevel += 1;
+				eatChar(lex);
+			}
+		}
+		else if (c == '*')
+		{
+			if (peekNextChar(lex) == '/')
+			{
+				commentLevel -= 1;
+				eatChar(lex);
+			}
+		}
+		eatChar(lex);
+	}
+	while (isWhiteSpace(peekChar(lex)))
+	{
+		eatChar(lex);
+	}
 }
 
 token GetNextToken(lexer* lex)
@@ -50,9 +82,14 @@ token GetNextToken(lexer* lex)
 		eatChar(lex);
 	}
 
-	char c = peekChar(lex);
+	if (peekChar(lex) == '/' && peekNextChar(lex) == '*')
+	{
+		lex->cur += 2;
+		skipComment(lex);
+	}
 
-	// TODO: Skip comments
+
+	char c = peekChar(lex);
 	res.type = Token_None;
 	switch (c)
 	{
@@ -517,7 +554,7 @@ void ReportCompilerError(lexer* lex, token token, const char* format)
 	}
 	lex->buf[endLine] = 0;
 	fprintf(stderr, "%s\nfile.b:%d:%d\n%d | %s\n", format, line, cursor, line, (char*)(lex->buf + beginLine));
-	fprintf(stderr, "  |%*s\n", cursor + 3, "^~~");
+	fprintf(stderr, "  |%*s\n\n", cursor + 3, "^~~");
 }
 
 

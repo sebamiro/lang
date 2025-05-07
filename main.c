@@ -8,11 +8,15 @@ typedef uint8_t u8;
 typedef int32_t b32;
 typedef int32_t s32;
 typedef uint32_t u32;
+typedef uint64_t u64;
 
 #include "token.h"
 
+#define Log(format, ...) fprintf(stderr, format, __VA_ARGS__)
+
 #include "lexer.c"
 #include "parser.c"
+
 
 int main(int argc, char** argv)
 {

@@ -1,3 +1,5 @@
+#include "ast.c"
+
 #define MaxIdetifierLenght 256
 #define MaxExternDeclarations 256
 
@@ -444,8 +446,10 @@ b32 global(parser* parser)
 	return 0;
 }
 
+
+b32 parseArgList(parser* parser);
 /**
- * A function has an identifier, and a list of parameters, that are pass on the
+ * A function has an identifier, and a list of parameters, that are passed on the
  * stack in reverse order.
  *
  * Must preserve registers, ebx, esi, edi, ebp, esp;
@@ -455,29 +459,55 @@ b32 global(parser* parser)
  */
 b32 function(parser* parser)
 {
-	// Function start
-	printf(".globl %s # Start Function\n", parser->scratchBuffer);
-	printf("%s:\n", parser->scratchBuffer);
-	printf(".long \"%s\" + 4\n", parser->scratchBuffer);
-	printf("enter 0, 0\n"); // NOTE: Check why this is for the stack variables.
+	ast_function f;
+	Log("Function Start: %s\n", parser->scratchBuffer);
 
-	// TODO: Add arg list to the stack. Check extrn arguments??
-	// If so shuold save them on a global, or here.
-	// Since no types, only the arg count is enough I guess.
-	if (!ExpectNextToken(parser->lex, ')'))
+	// ArgList  TODO: add to function socped declaraton and parameters.
+	if (parseArgList(parser)) return 1;
+
+	if (!ExpectNextToken(parser->lex, '{'))
 	{
-		ReportCompilerError(parser->lex, PeekToken(parser->lex), "Expected empty paramteter list"); // TODO: Report compiler error
+		ReportCompilerError(parser->lex, PeekToken(parser->lex), "Expected '{':\n");
 		return 1;
 	}
-	GetNextToken(parser->lex);
+	(void)f;
+	return 0;
+}
 
-	if (statement(parser))
+b32 parseArgList(parser* parser)
+{
+	token startParenthesis = PeekToken(parser->lex);
+	token iterToken = GetNextToken(parser->lex);
+	while (iterToken.type != ')')
 	{
-		fprintf(stderr, "Statement error\n");
-		return 1;
-	}
+		if (iterToken.type == Token_Identifier)
+		{
+			GetIdentifier(parser->lex, iterToken, parser->scratchBuffer);
+			Log("  function parameter: %s\n", parser->scratchBuffer);
+			// TODO: Hash it an add it to a list.
 
-	// TODO: Clear auto array; set len to zero(?)
+			iterToken = GetNextToken(parser->lex);
+			if (iterToken.type == Token_Identifier)
+			{
+				ReportCompilerError(parser->lex, PeekToken(parser->lex), "Expected separation comma ',' between arguments:\n");
+				return 1;
+			}
+			else if (iterToken.type == ',')
+			{
+				iterToken = GetNextToken(parser->lex);
+			}
+			else if (iterToken.type != ')')
+			{
+				ReportCompilerError(parser->lex, startParenthesis, "Expected closing parenthesis ')' for:\n");
+				return 1;
+			}
+		}
+		else
+		{
+			ReportCompilerError(parser->lex, iterToken, "Expected identifier:\n");
+			return 1;
+		}
+	}
 	return 0;
 }
 
@@ -528,9 +558,6 @@ b32 definition(parser* parser)
 
 b32 Parse(parser* parser)
 {
-	printf(".intel_syntax noprefix\n");
-	printf(".text\n");
-	printf(".text\n");
 	b32 hasError = definition(parser);;
 	return hasError;
 }
