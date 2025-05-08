@@ -1,7 +1,8 @@
-#include "ast.c"
+// #include "ast.c"
 
 #define MaxIdetifierLenght 256
 #define MaxExternDeclarations 256
+
 
 typedef struct {
 	lexer*	lex;
@@ -23,29 +24,7 @@ typedef struct
 	b32 hasError;
 } rval;
 
-typedef struct
-{
-	u32 len;
-} ast_global;
-
-typedef struct
-{
-	enum {
-		Ast_Statement,
-		Ast_BinaryOperation,
-		Ast_Constant,
-		Ast_Identifier,
-	} Type;
-} ast_value;
-
-typedef u32 handle_ast;
-typedef struct
-{
-	handle_ast	len;
-	handle_ast	cur;
-	ast_value*	data;
-} ast;
-
+b32 parseArgList(parser* parser, type_token endToken);
 
 b32 ExpectNextToken(lexer* lex, type_token type)
 {
@@ -280,6 +259,16 @@ b32 statement(parser* parser)
 {
 	switch (PeekToken(parser->lex).type)
 	{
+		case Token_Extrn:
+		{
+			Log("Extrn%s\n", "");
+			if (parseArgList(parser, ';')) return 1;
+		} break;
+		case Token_Auto:
+		{
+			Log("Auto%s\n", "");
+			if (parseArgList(parser, ';')) return 1;
+		} break;
 		case '{': // Compound statement
 		{
 			while (GetNextToken(parser->lex).type != '}')
@@ -303,8 +292,8 @@ b32 statement(parser* parser)
 					return 1;
 				}
 			}
-			printf("leave\n");
-			printf("ret\n");
+			Log("%s", "leave\n");
+			Log("%s", "ret\n");
 		} break;
 		default:
 		{
@@ -408,6 +397,7 @@ b32 global(parser* parser)
 	}
 	printf("%s: # Global variable declaration\n", parser->scratchBuffer);
 
+
 	u32 vectorCount = 0;
 	while (iterToken.type != ';' && iterToken.type != Token_EOF)
 	{
@@ -447,7 +437,6 @@ b32 global(parser* parser)
 }
 
 
-b32 parseArgList(parser* parser);
 /**
  * A function has an identifier, and a list of parameters, that are passed on the
  * stack in reverse order.
@@ -459,44 +448,47 @@ b32 parseArgList(parser* parser);
  */
 b32 function(parser* parser)
 {
-	ast_function f;
+	//ast_function f;
 	Log("Function Start: %s\n", parser->scratchBuffer);
 
 	// ArgList  TODO: add to function socped declaraton and parameters.
-	if (parseArgList(parser)) return 1;
+	if (parseArgList(parser, ')')) return 1;
 
 	if (!ExpectNextToken(parser->lex, '{'))
 	{
 		ReportCompilerError(parser->lex, PeekToken(parser->lex), "Expected '{':\n");
 		return 1;
 	}
-	(void)f;
+
+	GetNextToken(parser->lex);
+	statement(parser);
+
 	return 0;
 }
 
-b32 parseArgList(parser* parser)
+b32 parseArgList(parser* parser, type_token endToken)
 {
 	token startParenthesis = PeekToken(parser->lex);
+
 	token iterToken = GetNextToken(parser->lex);
-	while (iterToken.type != ')')
+	while (iterToken.type != endToken)
 	{
 		if (iterToken.type == Token_Identifier)
 		{
 			GetIdentifier(parser->lex, iterToken, parser->scratchBuffer);
-			Log("  function parameter: %s\n", parser->scratchBuffer);
-			// TODO: Hash it an add it to a list.
+			Log("  arg: %s\n", parser->scratchBuffer); // TODO: Hash it an add it to a list.
 
 			iterToken = GetNextToken(parser->lex);
-			if (iterToken.type == Token_Identifier)
+			if (iterToken.type == ',')
+			{
+				iterToken = GetNextToken(parser->lex);
+			}
+			else if (iterToken.type == Token_Identifier)
 			{
 				ReportCompilerError(parser->lex, PeekToken(parser->lex), "Expected separation comma ',' between arguments:\n");
 				return 1;
 			}
-			else if (iterToken.type == ',')
-			{
-				iterToken = GetNextToken(parser->lex);
-			}
-			else if (iterToken.type != ')')
+			else if (iterToken.type != endToken)
 			{
 				ReportCompilerError(parser->lex, startParenthesis, "Expected closing parenthesis ')' for:\n");
 				return 1;
