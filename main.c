@@ -12,7 +12,7 @@ typedef uint64_t u64;
 
 #include "token.h"
 
-#define Log(format, ...) fprintf(stderr, format, __VA_ARGS__)
+#define Log(format, ...) fprintf(stderr, "[%s:%d] "format, __FILE__, __LINE__, __VA_ARGS__)
 
 #include "lexer.c"
 #include "parser.c"
