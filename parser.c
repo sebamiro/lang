@@ -63,7 +63,7 @@ rval term(parser* parser)
 		} break;
 		default:
 		{
-			fprintf(stderr, "[term] Not implemented for now :P (%c)\n", token.type);
+			ReportCompilerError(parser->lex, token, "Expected identifier or constant:\n");
 			result.hasError = 1;
 		} break;
 	}
@@ -244,7 +244,22 @@ b32 expression(parser* parser)
 		} break;
 		case ';':
 		{
-			// TODO: Internal definition(?)
+			if (lhs.type == Rval_Constant)
+			{
+				if (lhs.token.type == Token_Number)
+				{
+					Log("  Constant number: %d\n", GetNumber(parser->lex, lhs.token));
+				}
+				else
+				{
+					Log("  Constant: %s\n", "unknown");
+				}
+			}
+			else if (lhs.type == Rval_Identifier)
+			{
+				GetIdentifier(parser->lex, lhs.token, parser->scratchBuffer);
+				Log("  Identifier: %s\n", parser->scratchBuffer);
+			}
 		} break;
 		default:
 		{
@@ -257,7 +272,8 @@ b32 expression(parser* parser)
 
 b32 statement(parser* parser)
 {
-	switch (PeekToken(parser->lex).type)
+	token t = PeekToken(parser->lex);
+	switch (t.type)
 	{
 		case Token_Extrn:
 		{
@@ -283,21 +299,20 @@ b32 statement(parser* parser)
 		} break;
 		case Token_Return:
 		{
+			Log("%s", "Return\n");
 			if (GetNextToken(parser->lex).type != ';')
 			{
 				if (expression(parser)) return 1;
 				if (!ExpectToken(parser->lex, ';'))
 				{
-					fprintf(stderr, "Expected ';' after 'return' statement\n"); // @Report
+					ReportCompilerError(parser->lex, t, "Expected ';' after return statement\n");
 					return 1;
 				}
 			}
-			Log("%s", "leave\n");
-			Log("%s", "ret\n");
 		} break;
 		default:
 		{
-			fprintf(stderr, "%d %c\n", PeekToken(parser->lex).type, PeekToken(parser->lex).type);
+			fprintf(stderr, "%d %c\n", t.type, PeekToken(parser->lex).type);
 			fprintf(stderr, "Not implemented for now :P\n");
 			assert(0);
 		} break;
@@ -317,29 +332,24 @@ b32 ival(parser* parser, token token)
 		case Token_Identifier: // @Robustness: Check if exists
 		{
 			GetIdentifier(parser->lex, token, parser->scratchBuffer);
-			printf("  .long %s\n", parser->scratchBuffer);
+			Log("  IVal Identifier: %s\n", parser->scratchBuffer);
 		} break;
 		case Token_Number:
 		{
 			u32 n = GetNumber(parser->lex, token);
-			printf("  .long %d\n", n);
+			Log("  IVal Number: %d\n", n);
 		} break;
 		case Token_String:
 		{
-			/* u32 n = GetNumber(parser->lex, token); */
-			/* printf("  .string \"%s\"\n", n); */
-			fprintf(stderr, "To implement: ival String\n");
-			hasError = 1;
+			Log("  IVal String: %s\n", "unknown");
 		} break;
 		case Token_Char:
 		{
-			/* u32 n = GetNumber(parser->lex, token); */
-			/* printf("  .string \"%s\"\n", n); */
-			fprintf(stderr, "To implement: ival Char\n");
-			hasError = 1;
+			Log("  IVal Char: %s\n", "unknown");
 		} break;
 		default:
 		{
+			ReportCompilerError(parser->lex, token, "Expected identifier or constant for initialization value:\n");
 			hasError = 1;
 		} break;
 	}
@@ -366,36 +376,26 @@ b32 ival(parser* parser, token token)
 b32 global(parser* parser)
 {
 	u32 vectorSize = 0;
+	token sizeToken;
 	token iterToken = PeekToken(parser->lex);
 
 	if (iterToken.type == '[')
 	{
 		iterToken = GetNextToken(parser->lex);
-		switch (iterToken.type)
+		if (iterToken.type == Token_Number)
 		{
-			case Token_Number:
-			{
-				vectorSize = GetNumber(parser->lex, PeekToken(parser->lex));
-				GetNextToken(parser->lex);
-			} break;
-			case ']':
-			{
-				// noop
-			} break;
-			default:
-			{
-				fprintf(stderr, "Expected number or ']' for vector initialization\n");
-				return 1;
-			} break;
+			vectorSize = GetNumber(parser->lex, PeekToken(parser->lex));
+			sizeToken = iterToken;
+			GetNextToken(parser->lex);
 		}
 		if (!ExpectToken(parser->lex, ']'))
 		{
-			fprintf(stderr, "Expected ']' for vector initialization\n");
+			ReportCompilerError(parser->lex, iterToken, "Expected number or ']' for vector initialization:\n");
 			return 1;
 		}
 		iterToken = GetNextToken(parser->lex);
 	}
-	printf("%s: # Global variable declaration\n", parser->scratchBuffer);
+	Log("Global: %s\n", parser->scratchBuffer);
 
 
 	u32 vectorCount = 0;
@@ -411,7 +411,7 @@ b32 global(parser* parser)
 		{
 			if (iterToken.type != ',')
 			{
-				fprintf(stderr, "Expected ','\n");
+				ReportCompilerError(parser->lex, iterToken, "Expected ',' after value:\n");
 				return 1;
 			}
 			iterToken = GetNextToken(parser->lex);
@@ -420,7 +420,7 @@ b32 global(parser* parser)
 
 	if (!ExpectToken(parser->lex, ';'))
 	{
-		fprintf(stderr, "Expected ';' at end of vector initialization\n");
+		ReportCompilerError(parser->lex, iterToken, "Expected ';' at end of vector initialization:\n");
 		return 1;
 	}
 
@@ -428,10 +428,10 @@ b32 global(parser* parser)
 	{
 		if (vectorSize < vectorCount)
 		{
-			fprintf(stderr, "Expected maximum %d vector elements, got %d\n", vectorSize, vectorCount);
+			ReportCompilerError(parser->lex, sizeToken, "Expected maximum %d vector elements, got %d:\n");
+			/* fprintf(stderr, "", vectorSize, vectorCount); */
 			return 1;
 		}
-		printf("  .zero %d\n", (vectorSize - vectorCount) * 4);
 	}
 	return 0;
 }
@@ -460,8 +460,10 @@ b32 function(parser* parser)
 		return 1;
 	}
 
-	GetNextToken(parser->lex);
-	statement(parser);
+	while (GetNextToken(parser->lex).type != '}')
+	{
+		if (statement(parser)) return 1;
+	}
 
 	return 0;
 }
