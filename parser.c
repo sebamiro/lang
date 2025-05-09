@@ -80,64 +80,7 @@ enum binary_precedence
 	Prec_BinMul,
 };
 
-void printOperation(type_token t)
-{
-	switch (t)
-	{
-		case Token_ShiftLeft:
-		{
-			printf("mov edx, ecx\n");
-			printf("mov ecx, eax\n");
-			printf("sal edx, cl\n");
-			printf("mov eax, edx\n");
-		} break;
-		case Token_ShiftRight:
-		{
-			printf("mov edx, ecx\n");
-			printf("mov ecx, eax\n");
-			printf("mov eax, edx\n");
-			printf("sar eax, ecx\n");
-		} break;
-		case '+':
-		{
-			printf("add eax, ecx\n");
-		} break;
-		case '|':
-		{
-			printf("or eax, ecx\n");
-		} break;
-		case '&':
-		{
-			printf("and eax, ecx\n");
-		} break;
-		case '*':
-		{
-			printf("imul eax, ecx\n");
-		} break;
-		case '/':
-		{
-			printf("push eax\n");
-			printf("mov eax, ecx\n");
-			printf("pop ecx\n");
-			printf("idiv eax, ecx\n");
-		} break;
-		case '%':
-		{
-			printf("push eax\n");
-			printf("mov eax, ecx\n");
-			printf("pop ecx\n");
-			printf("idiv eax, ecx\n");
-			printf("mov eax, edx\n");
-		} break;
-		default:
-		{
-			fprintf(stderr, "Should not be called with: %c\n", t);
-			assert(0);
-		} break;
-	}
-}
-
-u32 getPrecedence(type_token t)
+s32 getPrecedence(type_token t)
 {
 	switch (t)
 	{
@@ -161,55 +104,48 @@ u32 getPrecedence(type_token t)
 		{
 			return Prec_BinDiv;
 		} break;
-		case ';': return 0;
+		case ';':
+		case ')': return 0;
 		default:
 		{
-			fprintf(stderr, "[getPrecedence] Inivalid toke: %c\n", t);
-			assert(0);
+			return -1;
 		} break;
 	}
 	return 0;
 }
 
-b32 expression(parser* parser);
-b32 binary_op(parser* parser, rval* lhs, u32 curPrecedence)
+b32 binary_op(parser* parser, rval* lhs, s32 curPrecedence, type_token end)
 {
 	token operation = PeekToken(parser->lex);
-	u32 opPrecedence = getPrecedence(operation.type);
+	s32 opPrecedence = getPrecedence(operation.type);
 
-	if (operation.type == ';' || opPrecedence < curPrecedence)
+	if (opPrecedence == -1)
 	{
-		if (lhs->type == Rval_Constant)
-		{
-			printf("mov eax, %d\n", GetNumber(parser->lex, lhs->token));
-		}
-		else if (lhs->type == Rval_Identifier)
-		{
-			GetIdentifier(parser->lex, lhs->token, parser->scratchBuffer);
-			printf("mov eax, %s\n", parser->scratchBuffer);
-		}
+		ReportCompilerError(parser->lex, lhs->token, "Expected binary operator or ';' after value:\n");
+		return 1;
+	}
+
+	if (operation.type == end || opPrecedence < curPrecedence)
+	{
+		Log("  rhs: %d\n", GetNumber(parser->lex, lhs->token));
 		return 0;
 	}
 
-	GetNextToken(parser->lex);
-	rval rhs = term(parser);
+	Log("Operation: %c\n", operation.type);
+	if (lhs->type == Rval_Constant) Log("  lhs: %d\n", GetNumber(parser->lex, lhs->token));
+	token tokenRhs = GetNextToken(parser->lex);
+	rval rhs;
+	if (tokenRhs.type == '(')
+	{
+		GetNextToken(parser->lex);
+		rhs = term(parser);
+		if (binary_op(parser, &rhs, 0, ')')) return 1;
+		GetNextToken(parser->lex);
+		return 0;
+	}
+	rhs = term(parser);
 	if (rhs.hasError) return 1;
-	if (binary_op(parser, &rhs, opPrecedence)) return 1;
-	if (lhs->type == Rval_Constant)
-	{
-		printf("mov ecx, %d\n", GetNumber(parser->lex, lhs->token));
-	}
-	else if (lhs->type == Rval_Identifier)
-	{
-		GetIdentifier(parser->lex, lhs->token, parser->scratchBuffer);
-		printf("mov ecx, %s\n", parser->scratchBuffer);
-	}
-	else if (lhs->type == Rval_OnStack)
-	{
-		printf("pop ecx\n");
-	}
-	printOperation(operation.type);
-
+	if (binary_op(parser, &rhs, opPrecedence, end)) return 1;
 	return 0;
 }
 
@@ -236,9 +172,8 @@ b32 expression(parser* parser)
 		{
 			while (1)
 			{
-				if (binary_op(parser, &lhs, 0)) return 1;
+				if (binary_op(parser, &lhs, 0, ';')) return 1;
 				if (PeekToken(parser->lex).type == ';') break;
-				printf("push eax\n");
 				lhs.type = Rval_OnStack;
 			}
 		} break;
