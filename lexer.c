@@ -552,9 +552,16 @@ void ReportCompilerError(lexer* lex, token token, const char* format)
 	{
 		endLine++;
 	}
+
+	u32 ident = 3;
+	for (u32 i = beginLine; lex->buf[i] == '\t' || lex->buf[i] == ' '; i++)
+	{
+		if ('\t') ident += 2;
+		if (' ') ident += 1;
+	}
 	lex->buf[endLine] = 0;
 	fprintf(stderr, "%s\nfile.b:%d:%d\n%d | %s\n", format, line, cursor, line, (char*)(lex->buf + beginLine));
-	fprintf(stderr, "  |%*s\n\n", cursor + 3, "^~~");
+	fprintf(stderr, "  |%*s\n\n", cursor + ident, "^~~");
 }
 
 
