@@ -30,8 +30,13 @@ typedef struct {
 	u32			Cur;
 	u32			Index;
 	u64*		HashNames;
-} ScopeDeclarations;
+} scope_declarations;
 
 typedef struct {
-	ScopeDeclarations DeclaredIdentifiers;
+	handle_statement Next;
+} statement;
+
+typedef struct {
+	handle_statement*	Statements;
+	u64*				ParametersHashes;
 } ast_function;

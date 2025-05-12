@@ -3,7 +3,6 @@
 #define MaxIdetifierLenght 256
 #define MaxExternDeclarations 256
 
-
 typedef struct {
 	lexer*	lex;
 
@@ -24,12 +23,21 @@ typedef struct
 	b32 hasError;
 } rval;
 
+enum binary_precedence
+{
+	Prec_BinCmp,
+	Prec_BinShift,
+	Prec_BinUnary,
+	Prec_BinAdd,
+	Prec_BinDiv,
+	Prec_BinMul,
+};
+
 b32 parseArgList(parser* parser, type_token endToken);
 
 b32 ExpectNextToken(lexer* lex, type_token type)
 {
 	token t = GetNextToken(lex);
-
 	return t.type == type;
 }
 
@@ -69,16 +77,6 @@ rval term(parser* parser)
 	}
 	return result;
 }
-
-enum binary_precedence
-{
-	Prec_BinCmp,
-	Prec_BinShift,
-	Prec_BinUnary,
-	Prec_BinAdd,
-	Prec_BinDiv,
-	Prec_BinMul,
-};
 
 s32 getPrecedence(type_token t)
 {
@@ -383,7 +381,6 @@ b32 global(parser* parser)
  */
 b32 function(parser* parser)
 {
-	//ast_function f;
 	Log("Function Start: %s\n", parser->scratchBuffer);
 
 	// ArgList  TODO: add to function socped declaraton and parameters.
